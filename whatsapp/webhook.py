@@ -1,8 +1,9 @@
 # chatbot/whatsapp/webhook.py
 
 from fastapi import APIRouter, Request, Depends
+from fastapi.responses import PlainTextResponse
 from sqlalchemy.orm import Session
-from core.dependencies import get_db  # ✅ novo
+from core.dependencies import get_db
 from tenants.models import Tenant
 from integrations.evolution_api import EvolutionAPI
 from ia.processor import generate_response
@@ -10,26 +11,82 @@ from ia.processor import generate_response
 router = APIRouter()
 e = EvolutionAPI()
 
-@router.post("/webhook")  # não esquecer o decorator!
+@router.post("/webhook")
 async def webhook(
     request: Request,
-    db: Session = Depends(get_db)  # ✅ injeta o banco automaticamente
+    db: Session = Depends(get_db)
 ):
-    data = await request.json()
-    message = data['data']['message']['conversation']
-    instance = data['instance']
-    instance_key = data['apikey']
-    send_number = data['data']['key']['remoteJid'].split('@')[0]
+    body = await request.json()
+    print("📨 Dados recebidos:", body)
+
+    try:
+        # Detecta se é o formato padrão da Meta (payload de teste real)
+        if "entry" in body:
+            changes = body["entry"][0]["changes"][0]["value"]
+            message_obj = changes["messages"][0]
+            contact = changes["contacts"][0]
+            message = message_obj["text"]["body"]
+            send_number = contact["wa_id"]
+            instance = "instancia_teste"
+            instance_key = "chave_teste"
+
+        # Caso seja seu payload customizado com 'data'
+        elif "data" in body:
+            message = body["data"]["message"]["conversation"]
+            instance = body["instance"]
+            instance_key = body["apikey"]
+            send_number = body["data"]["key"]["remoteJid"].split("@")[0]
+
+        else:
+            raise ValueError("Formato de payload não reconhecido.")
+
+        print("📩 Mensagem recebida:", message)
+        print("📱 Número do remetente:", send_number)
+        print("🔐 API Key:", instance_key)
+
+    except Exception as err:
+        print("❌ Erro ao extrair dados do webhook:", err)
+        return {"error": "Invalid payload format"}
 
     tenant = db.query(Tenant).filter(Tenant.whatsapp_number == send_number).first()
     if not tenant:
-        return {'error': 'Tenant not found'}
+        print("⚠️ Tenant não encontrado para número:", send_number)
+        return {"error": "Tenant not found"}
 
-    response = await generate_response(
-        message=message,
-        context_path=tenant.context_path,
-        openai_key=tenant.openai_key,
-    )
+    try:
+        response = await generate_response(
+            message=message,
+            context_path=tenant.context_path,
+            openai_key=tenant.openai_key,
+        )
+        resposta_ia = getattr(response, "content", str(response))
+        print("🤖 Resposta da IA:", resposta_ia)
+    except Exception as err:
+        print("❌ Erro ao gerar resposta:", err)
+        return {"error": "Erro ao gerar resposta com IA"}
 
-    await e.enviar_messagem(response.content, instance, instance_key, send_number)
-    return {'response': message}
+    try:
+        await e.enviar_mensagem(resposta_ia, instance, instance_key, send_number)
+        print("✅ Mensagem enviada com sucesso.")
+    except Exception as err:
+        print("❌ Erro ao enviar mensagem via EvolutionAPI:", err)
+        return {"error": "Erro ao enviar mensagem"}
+
+    return {"response": message}
+
+
+@router.get("/webhook")
+async def verify(request: Request):
+    """
+    Endpoint de verificação exigido pelo WhatsApp Cloud API da Meta.
+    """
+    params = request.query_params
+    VERIFY_TOKEN = "maycon_token"
+
+    if (
+        params.get("hub.mode") == "subscribe"
+        and params.get("hub.verify_token") == VERIFY_TOKEN
+    ):
+        return PlainTextResponse(content=params.get("hub.challenge"), status_code=200)
+
+    return PlainTextResponse(content="Verificação falhou", status_code=403)
