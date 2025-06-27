@@ -1,8 +1,8 @@
-"""create tenants table
+"""create tenants table com campos Meta e OpenAI
 
-Revision ID: dc66d2a1c329
-Revises: ba19e0f04bc7
-Create Date: 2025-06-25 17:13:36.835895
+Revision ID: 5d06069d181d
+Revises: 
+Create Date: 2025-06-26 16:42:22.811598
 
 """
 from typing import Sequence, Union
@@ -12,8 +12,8 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision: str = 'dc66d2a1c329'
-down_revision: Union[str, Sequence[str], None] = 'ba19e0f04bc7'
+revision: str = '5d06069d181d'
+down_revision: Union[str, Sequence[str], None] = None
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
@@ -27,6 +27,7 @@ def upgrade() -> None:
     sa.Column('whatsapp_number', sa.String(), nullable=False),
     sa.Column('openai_key', sa.String(), nullable=False),
     sa.Column('whatsapp_token', sa.String(), nullable=False),
+    sa.Column('phone_number_id', sa.String(), nullable=False),
     sa.Column('context_path', sa.String(), nullable=False),
     sa.Column('ia_enabled', sa.Boolean(), nullable=True),
     sa.PrimaryKeyConstraint('id'),

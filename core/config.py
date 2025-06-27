@@ -4,11 +4,16 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.ext.declarative import declarative_base
 
+load_dotenv() 
+WHATSAPP_TOKEN = os.getenv("WHATSAPP_PERMANENT_TOKEN")
+print("🔐 Token carregado:", WHATSAPP_TOKEN[:15], "...")  # Só para debug
+
+
 Base = declarative_base()
 
 
 
-load_dotenv()  # carrega o .env
+ # carrega o .env
 
 DB_HOST = os.getenv("DB_HOST", "localhost")
 DB_PORT = os.getenv("DB_PORT", "5432")

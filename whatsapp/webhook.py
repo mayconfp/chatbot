@@ -48,9 +48,15 @@ async def webhook(
         print("❌ Erro ao extrair dados do webhook:", err)
         return {"error": "Invalid payload format"}
 
-    tenant = db.query(Tenant).filter(Tenant.whatsapp_number == send_number).first()
+    metadata = body["entry"][0]["changes"][0]["value"]["metadata"]
+    phone_number_id = metadata["phone_number_id"]
+
+    tenant = db.query(Tenant).filter(Tenant.phone_number_id == phone_number_id).first()
+
     if not tenant:
         print("⚠️ Tenant não encontrado para número:", send_number)
+        print("🧪 Tipo do phone_number_id recebido:", type(phone_number_id))
+
         return {"error": "Tenant not found"}
 
     try:
@@ -64,9 +70,17 @@ async def webhook(
     except Exception as err:
         print("❌ Erro ao gerar resposta:", err)
         return {"error": "Erro ao gerar resposta com IA"}
+    
 
     try:
-        await e.enviar_mensagem(resposta_ia, instance, instance_key, send_number)
+        
+        await e.enviar_mensagem(
+            mensagem=resposta_ia,
+            phone_number_id=tenant.phone_number_id,
+            numero_destino=send_number,
+        )
+
+
         print("✅ Mensagem enviada com sucesso.")
     except Exception as err:
         print("❌ Erro ao enviar mensagem via EvolutionAPI:", err)
@@ -77,6 +91,7 @@ async def webhook(
 
 @router.get("/webhook")
 async def verify(request: Request):
+    print("📥 Recebido GET de verificação da Meta")
     """
     Endpoint de verificação exigido pelo WhatsApp Cloud API da Meta.
     """
