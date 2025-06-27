@@ -5,7 +5,7 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.ext.declarative import declarative_base
 
 load_dotenv() 
-WHATSAPP_TOKEN = os.getenv("WHATSAPP_PERMANENT_TOKEN")
+WHATSAPP_TOKEN = os.getenv("WHATSAPP_TOKEN")
 print("🔐 Token carregado:", WHATSAPP_TOKEN[:15], "...")  # Só para debug
 
 
